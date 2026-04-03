@@ -4,5 +4,16 @@
 <dict>
 	<key>com.apple.developer.kernel.increased-memory-limit</key>
 	<true/>
+	<!-- Required for TrollStore / Some JIT Providers -->
+	<key>dynamic-codesigning</key>
+	<true/>
+	<!-- Required for AltStore / Jitterbug / Xcode Debugger JIT -->
+	<key>get-task-allow</key>
+	<true/>
+	<!-- JIT entitlement required by modern iOS developer configurations -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<key>com.apple.security.cs.debugger</key>
+	<true/>
 </dict>
 </plist>

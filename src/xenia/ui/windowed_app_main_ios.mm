@@ -8,6 +8,8 @@
  */
 
 #import <GameController/GameController.h>
+#import "xeni_virtual_controller.mm"
+
 #import <MetalKit/MetalKit.h>
 #import <PhotosUI/PhotosUI.h>
 #import <UIKit/UIKit.h>
@@ -8084,6 +8086,8 @@ static constexpr NSInteger kXeniaDiscussionPreviewCount = 3;
 @property(nonatomic, assign) BOOL gameRunning;
 @property(nonatomic, assign) BOOL gameStopInProgress;
 @property(nonatomic, assign) xe::ui::IOSWindowedAppContext* appContext;
+@property(nonatomic, strong) XeniVirtualControllerOverlay* virtualControllerOverlay;
+
 
 // JIT status widgets.
 @property(nonatomic, strong) UIView* jitWarningCard;
@@ -8162,6 +8166,12 @@ static constexpr NSInteger kXeniaDiscussionPreviewCount = 3;
       UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
   self.metalView.contentScaleFactor = [UIScreen mainScreen].scale;
   [self.view addSubview:self.metalView];
+
+  self.virtualControllerOverlay = [[XeniVirtualControllerOverlay alloc] initWithFrame:self.view.bounds];
+  self.virtualControllerOverlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  self.virtualControllerOverlay.hidden = YES;
+  [self.view addSubview:self.virtualControllerOverlay];
+
 
   // Create the launcher overlay UI immediately. When JIT is missing, keep
   // settings/navigation available but gate game launch with status.
@@ -9039,6 +9049,21 @@ static constexpr NSInteger kXeniaDiscussionPreviewCount = 3;
       set_button(gamepad.leftThumbstickButton.pressed, xe::hid::X_INPUT_GAMEPAD_LEFT_THUMB);
       set_button(gamepad.rightThumbstickButton.pressed, xe::hid::X_INPUT_GAMEPAD_RIGHT_THUMB);
     }
+
+
+  if (self.virtualControllerOverlay && !self.virtualControllerOverlay.hidden) {
+      buttons |= self.virtualControllerOverlay.outButtons;
+      out_state->gamepad.left_trigger = MAX(out_state->gamepad.left_trigger, self.virtualControllerOverlay.outLT);
+      out_state->gamepad.right_trigger = MAX(out_state->gamepad.right_trigger, self.virtualControllerOverlay.outRT);
+      if (self.virtualControllerOverlay.outThumbLX != 0) out_state->gamepad.thumb_lx = self.virtualControllerOverlay.outThumbLX;
+      if (self.virtualControllerOverlay.outThumbLY != 0) out_state->gamepad.thumb_ly = self.virtualControllerOverlay.outThumbLY;
+      if (self.virtualControllerOverlay.outThumbRX != 0) out_state->gamepad.thumb_rx = self.virtualControllerOverlay.outThumbRX;
+      if (self.virtualControllerOverlay.outThumbRY != 0) out_state->gamepad.thumb_ry = self.virtualControllerOverlay.outThumbRY;
+      
+      out_state->packet_number = ++native_controller_packet_number_;
+      out_state->gamepad.buttons = buttons;
+      return YES;
+  }
 
     out_state->packet_number = ++native_controller_packet_number_;
     out_state->gamepad.buttons = buttons;
@@ -10603,6 +10628,7 @@ static constexpr NSInteger kXeniaDiscussionPreviewCount = 3;
       }
       completion:^(__unused BOOL finished) {
         self.launcherOverlay.hidden = YES;
+  self.virtualControllerOverlay.hidden = NO;
       }];
 
   if (self.appContext) {

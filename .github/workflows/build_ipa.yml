@@ -1,0 +1,43 @@
+name: Build XeniOS IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: "Build iOS IPA"
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          brew install sdl2 ninja pipx
+
+          # Initialize submodules (as required by XeniOS)
+          git submodule update --init --depth=1 -j"$(sysctl -n hw.ncpu)" \
+            $(grep -oE 'path = .+' .gitmodules | sed 's/path = //' | grep -v 'premake-androidndk\|premake-export-compile-commands')
+          git -C third_party/DirectXShaderCompiler submodule update --init --depth=1 \
+            external/SPIRV-Headers external/SPIRV-Tools
+
+          ./xenia-build.py premake
+          ./xenia-build.py fetchdata
+
+      - name: Build Xcode Project
+        shell: bash
+        run: |
+          # Use the repository's native build script but completely bypass the
+          # complex publishing and attestation steps!
+          ./tools/build_apple_release.sh --skip-macos-arm64 --skip-macos-x86_64
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "XeniOS"
+          path: "scratch/artifacts/xenios_ios_iphone_ipad.ipa"
+          if-no-files-found: error
